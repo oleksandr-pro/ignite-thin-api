@@ -1,0 +1,10 @@
+spring:  
+  application:
+    name: ignite-thin-layer
+
+server:  
+  port: ${PORT:8090}
+  
+management:
+  security:
+    enabled: false
