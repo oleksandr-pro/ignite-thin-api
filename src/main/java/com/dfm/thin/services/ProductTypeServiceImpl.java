@@ -63,6 +63,9 @@ public class ProductTypeServiceImpl implements ProductTypeService{
         try (IgniteClient client = Ignition.startClient(cfg)) {
             ClientCache<Long, ProductType> cache = client.getOrCreateCache(CACHE_NAME);
             ProductType p = cache.get(id);
+            if (p == null) {
+                throw new ResourceNotFoundException("Product Type not found with id " + id);
+            }
             p.setId(id);
             return p;
         }
@@ -84,9 +87,7 @@ public class ProductTypeServiceImpl implements ProductTypeService{
             Long key = (Long) cache.query(new SqlFieldsQuery(sql).setDistributedJoins(true)).getAll().iterator().next().iterator().next();
             productType.setId(key);
             cache.put(key, productType);
-            ProductType p = cache.get(key);
-            p.setId(key);
-            return p;
+            return productType;
         }
         catch (ClientException e) {
             System.err.println(e.getMessage());
@@ -103,9 +104,12 @@ public class ProductTypeServiceImpl implements ProductTypeService{
         try (IgniteClient client = Ignition.startClient(cfg)) {
             ClientCache<Long, ProductType> cache = client.getOrCreateCache(CACHE_NAME);
             body.setId(id);
-            cache.replace(id, body);
-            ProductType p = cache.get(id);
-            p.setId(id);
+            ProductType p = cache.getAndPut(id, body);
+            if (p == null) {
+                throw new ResourceNotFoundException("Product Type not found with id " + id);
+            }
+            p.setDescription(body.getDescription());
+            p.setName(body.getName());
             return p;
         }
         catch (ClientException e) {
@@ -123,12 +127,11 @@ public class ProductTypeServiceImpl implements ProductTypeService{
         try (IgniteClient client = Ignition.startClient(cfg)) {
             ClientCache<Long, ProductType> cache = client.getOrCreateCache(CACHE_NAME);
 
-            if (cache.containsKey(id)) {
-                cache.remove(id);
-                return ResponseEntity.ok().build();
-            } else {
-                return ResponseEntity.notFound().build();
+            ProductType p = cache.getAndRemove(id);
+            if (p == null) {
+                throw new ResourceNotFoundException("Product Type not found with id " + id);
             }
+            return ResponseEntity.ok().build();
 
         }
         catch (ClientException e) {
