@@ -1,9 +1,7 @@
 package com.dfm.thin.services;
 
-
 import com.dfm.thin.exceptions.ResourceNotFoundException;
-import com.dfm.thin.model.ProductType;
-import org.apache.ignite.Ignite;
+import com.dfm.thin.model.Product;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
 import org.apache.ignite.client.ClientCache;
@@ -14,38 +12,39 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 
-import java.sql.Timestamp;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Component
 @Service
-public class ProductTypeServiceImpl implements ProductTypeService{
+public class ProductServiceImpl implements ProductService{
 
-    final String CACHE_NAME = "ProductTypeCache";
+    final String PRODUCT_CACHE = "ProductCache";
+    final String TYPE_CACHE = "ProductCache";
     private static final AtomicLong ID_GEN = new AtomicLong();
-
     @Override
-    public List<ProductType> listAll() {
-        List<ProductType> productTypes = new ArrayList<>();
+    public List<Product> listAllByTypeId(Long typeId) {
+
+        List<Product> products = new ArrayList<>();
         ClientConfiguration cfg = new ClientConfiguration().setAddresses("127.0.0.1:10800");
 
         try (IgniteClient client = Ignition.startClient(cfg)) {
-            ClientCache<Long, ProductType> cache = client.getOrCreateCache(CACHE_NAME);
+            ClientCache<Long, Product> cache = client.getOrCreateCache(PRODUCT_CACHE);
 
-            String sql = "select id, name, description from product_type";
-            List<List<?>> res = cache.query(new SqlFieldsQuery(sql).setDistributedJoins(true)).getAll();
+            String sql = "select id, name, description, url, type_id from product where type_id = ?";
+            List<List<?>> res = cache.query(new SqlFieldsQuery(sql).setArgs(typeId).setDistributedJoins(true)).getAll();
 
             for (List<?> next : res) {
-                ProductType productType = new ProductType();
-                productType.setId((Long) next.get(0));
-                productType.setName((String) next.get(1));
-                productType.setDescription((String) next.get(2));
-                productTypes.add(productType);
+                Product p = new Product();
+                p.setId((Long) next.get(0));
+                p.setName((String) next.get(1));
+                p.setDescription((String) next.get(2));
+                p.setUrl((String) next.get(3));
+                p.setTypeId((Long) next.get(4));
+                products.add(p);
             }
-            return productTypes;
+            return products;
         }
         catch (ClientException e) {
             System.err.println(e.getMessage());
@@ -53,18 +52,17 @@ public class ProductTypeServiceImpl implements ProductTypeService{
         catch (Exception e) {
             System.err.format("Unexpected failure: %s\n", e);
         }
-
         return null;
     }
 
     @Override
-    public ProductType findOne(Long id) {
+    public Product findOne(Long id) {
         ClientConfiguration cfg = new ClientConfiguration().setAddresses("127.0.0.1:10800");
         try (IgniteClient client = Ignition.startClient(cfg)) {
-            ClientCache<Long, ProductType> cache = client.getOrCreateCache(CACHE_NAME);
-            ProductType p = cache.get(id);
+            ClientCache<Long, Product> cache = client.getOrCreateCache(PRODUCT_CACHE);
+            Product p = cache.get(id);
             if (p == null) {
-                throw new ResourceNotFoundException("Product Type not found with id " + id);
+                throw new ResourceNotFoundException("Product not found with id " + id);
             }
             p.setId(id);
             return p;
@@ -79,18 +77,18 @@ public class ProductTypeServiceImpl implements ProductTypeService{
     }
 
     @Override
-    public ProductType save(ProductType productType) {
+    public Product save(Product body) {
         ClientConfiguration cfg = new ClientConfiguration().setAddresses("127.0.0.1:10800");
         try (IgniteClient client = Ignition.startClient(cfg)) {
-            ClientCache<Long, ProductType> cache = client.getOrCreateCache(CACHE_NAME);
-            String sql = "select max(id) + 1 from product_type";
+            ClientCache<Long, Product> cache = client.getOrCreateCache(PRODUCT_CACHE);
+            String sql = "select max(id) + 1 from product";
             Long key = (Long) cache.query(new SqlFieldsQuery(sql).setDistributedJoins(true)).getAll().iterator().next().iterator().next();
             if (key == null) {
                 key = 1L;
             }
-            productType.setId(key);
-            cache.put(key, productType);
-            return productType;
+            body.setId(key);
+            cache.put(key, body);
+            return body;
         }
         catch (ClientException e) {
             System.err.println(e.getMessage());
@@ -102,18 +100,17 @@ public class ProductTypeServiceImpl implements ProductTypeService{
     }
 
     @Override
-    public ProductType update(ProductType body, Long id) {
+    public Product update(Product body, Long id) {
+
         ClientConfiguration cfg = new ClientConfiguration().setAddresses("127.0.0.1:10800");
         try (IgniteClient client = Ignition.startClient(cfg)) {
-            ClientCache<Long, ProductType> cache = client.getOrCreateCache(CACHE_NAME);
+            ClientCache<Long, Product> cache = client.getOrCreateCache(PRODUCT_CACHE);
             body.setId(id);
-            ProductType p = cache.getAndPut(id, body);
+            Product p = cache.getAndPut(id, body);
             if (p == null) {
-                throw new ResourceNotFoundException("Product Type not found with id " + id);
+                throw new ResourceNotFoundException("Product not found with id " + id);
             }
-            p.setDescription(body.getDescription());
-            p.setName(body.getName());
-            return p;
+            return body;
         }
         catch (ClientException e) {
             System.err.println(e.getMessage());
@@ -126,13 +123,14 @@ public class ProductTypeServiceImpl implements ProductTypeService{
 
     @Override
     public ResponseEntity<?> delete(Long id) {
+
         ClientConfiguration cfg = new ClientConfiguration().setAddresses("127.0.0.1:10800");
         try (IgniteClient client = Ignition.startClient(cfg)) {
-            ClientCache<Long, ProductType> cache = client.getOrCreateCache(CACHE_NAME);
+            ClientCache<Long, Product> cache = client.getOrCreateCache(PRODUCT_CACHE);
 
-            ProductType p = cache.getAndRemove(id);
+            Product p = cache.getAndRemove(id);
             if (p == null) {
-                throw new ResourceNotFoundException("Product Type not found with id " + id);
+                throw new ResourceNotFoundException("Product not found with id " + id);
             }
             return ResponseEntity.ok().build();
 
@@ -144,14 +142,5 @@ public class ProductTypeServiceImpl implements ProductTypeService{
             System.err.format("Unexpected failure: %s\n", e);
         }
         return null;
-    }
-
-    private Long generateId() {
-        return ID_GEN.incrementAndGet();
-    }
-
-    private Timestamp now() {
-        Date date = new Date();
-        return new Timestamp(date.getTime());
     }
 }
