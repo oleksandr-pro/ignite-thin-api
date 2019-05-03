@@ -30,7 +30,7 @@ public class ProductTypeServiceImpl implements ProductTypeService{
     @Override
     public List<ProductType> listAll() {
         List<ProductType> productTypes = new ArrayList<>();
-        ClientConfiguration cfg = new ClientConfiguration().setAddresses("127.0.0.1:10800");
+        ClientConfiguration cfg = new ClientConfiguration().setAddresses("3.120.36.173:10800");
 
         try (IgniteClient client = Ignition.startClient(cfg)) {
             ClientCache<Long, ProductType> cache = client.getOrCreateCache(CACHE_NAME);
@@ -59,7 +59,7 @@ public class ProductTypeServiceImpl implements ProductTypeService{
 
     @Override
     public ProductType findOne(Long id) {
-        ClientConfiguration cfg = new ClientConfiguration().setAddresses("127.0.0.1:10800");
+        ClientConfiguration cfg = new ClientConfiguration().setAddresses("3.120.36.173:10800");
         try (IgniteClient client = Ignition.startClient(cfg)) {
             ClientCache<Long, ProductType> cache = client.getOrCreateCache(CACHE_NAME);
             ProductType p = cache.get(id);
@@ -80,7 +80,7 @@ public class ProductTypeServiceImpl implements ProductTypeService{
 
     @Override
     public ProductType save(ProductType productType) {
-        ClientConfiguration cfg = new ClientConfiguration().setAddresses("127.0.0.1:10800");
+        ClientConfiguration cfg = new ClientConfiguration().setAddresses("3.120.36.173:10800");
         try (IgniteClient client = Ignition.startClient(cfg)) {
             ClientCache<Long, ProductType> cache = client.getOrCreateCache(CACHE_NAME);
             String sql = "select max(id) + 1 from product_type";
